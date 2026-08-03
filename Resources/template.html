@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+body {
+  padding: 32px 40px 60px;
+}
+.markdown-body {
+  box-sizing: border-box;
+  min-width: 200px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.markdown-body img {
+  max-width: 100%;
+}
+/* __GITHUB_MARKDOWN_CSS__ */
+</style>
+</head>
+<body class="markdown-body">
+<div id="content">Rendering…</div>
+<script>/* __MARKED_JS__ */</script>
+<script>
+(function () {
+  var source = /* __MARKDOWN_SOURCE_JSON__ */;
+  try {
+    document.getElementById('content').innerHTML = marked.parse(source, { gfm: true, breaks: false });
+  } catch (e) {
+    document.getElementById('content').textContent = 'Failed to render Markdown: ' + e;
+  }
+})();
+</script>
+</body>
+</html>
