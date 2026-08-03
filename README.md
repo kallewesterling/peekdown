@@ -65,6 +65,19 @@ qlmanage -p path/to/file.md
   wires up invisibly for app extensions), assembles the `.app`/`.appex`
   bundle structure by hand, and ad-hoc code signs both.
 
+## Troubleshooting
+
+- **`error: no such module 'QuickLookUI'` (or similar) when running
+  `./build.sh`**: Xcode is installed but not selected as the active
+  developer directory (common right after installing Xcode fresh — having
+  it in `/Applications` isn't enough). Fix:
+  ```sh
+  sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+  sudo xcodebuild -license accept
+  ```
+  Then re-run `./build.sh`. `build.sh` now checks for this up front and
+  prints this same fix if it detects the problem.
+
 ## Known limitations
 
 - Local images referenced by relative path are inlined as base64 at preview

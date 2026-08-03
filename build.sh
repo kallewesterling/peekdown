@@ -9,6 +9,16 @@ BUILD_DIR="build"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 APPEX_BUNDLE="$APP_BUNDLE/Contents/PlugIns/$EXT_NAME.appex"
 
+echo "== Checking toolchain =="
+if ! echo 'import QuickLookUI' | xcrun swiftc -sdk "$(xcrun --sdk macosx --show-sdk-path)" -typecheck - >/dev/null 2>&1; then
+  echo "error: 'import QuickLookUI' failed to compile with the active developer directory ($(xcode-select -p))." >&2
+  echo "This almost always means Xcode is installed but not selected as the active toolchain." >&2
+  echo "Fix with:" >&2
+  echo "  sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer" >&2
+  echo "  sudo xcodebuild -license accept" >&2
+  exit 1
+fi
+
 echo "== Cleaning build directory =="
 rm -rf "$BUILD_DIR"
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
