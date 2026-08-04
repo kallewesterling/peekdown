@@ -2,6 +2,27 @@
 <html>
 <head>
 <meta charset="utf-8">
+<!--
+  Previewed files are untrusted input. Markdown may contain raw HTML, and
+  `marked` does not sanitize it, so a hostile .md file could otherwise phone
+  home (remote images, stylesheets, iframes) or run script (e.g. an inline
+  `onerror` handler) the moment you press Space on it in Finder.
+
+  Everything this preview needs is inlined by MarkdownRenderer, so no remote
+  fetch is ever legitimate: deny every source but inline script/style and
+  data: URIs for the images we embedded ourselves.
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  img-src data:;
+  media-src data:;
+  font-src data:;
+  style-src 'unsafe-inline';
+  script-src 'unsafe-inline';
+  base-uri 'none';
+  form-action 'none';
+  frame-ancestors 'none';
+">
 <meta name="color-scheme" content="light dark">
 <style>
 html, body {

@@ -26,25 +26,54 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 mkdir -p "$APPEX_BUNDLE/Contents/MacOS"
 mkdir -p "$APPEX_BUNDLE/Contents/Resources"
 
-echo "== Compiling extension =="
-xcrun swiftc \
-  -module-name "$EXT_NAME" \
+# Keep this in sync with LSMinimumSystemVersion in Plists/*.plist. Without an
+# explicit -target, swiftc builds for the *host* macOS version, so the bundle
+# silently refuses to load on anything older than the machine that built it.
+DEPLOYMENT_TARGET="11.0"
+ARCHS=(arm64 x86_64)
+
+# Compiles one target for every arch in $ARCHS and lipos them into a universal
+# binary, so a build made on Apple silicon still runs on Intel Macs.
+# usage: build_universal <output> <module-name> <sources-glob> [extra swiftc args...]
+build_universal() {
+  local output="$1" module="$2" sources="$3"
+  shift 3
+  local slices=()
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+
+  for arch in "${ARCHS[@]}"; do
+    local slice="$tmpdir/$module.$arch"
+    xcrun swiftc \
+      -module-name "$module" \
+      -target "$arch-apple-macos$DEPLOYMENT_TARGET" \
+      -emit-executable \
+      -O \
+      $sources \
+      -o "$slice" \
+      "$@"
+    slices+=("$slice")
+  done
+
+  xcrun lipo -create "${slices[@]}" -output "$output"
+  rm -rf "$tmpdir"
+}
+
+echo "== Compiling extension (${ARCHS[*]}) =="
+build_universal \
+  "$APPEX_BUNDLE/Contents/MacOS/$EXT_NAME" \
+  "$EXT_NAME" \
+  "Sources/Extension/*.swift" \
   -parse-as-library \
   -application-extension \
-  -emit-executable \
-  -O \
-  Sources/Extension/*.swift \
-  -o "$APPEX_BUNDLE/Contents/MacOS/$EXT_NAME" \
   -Xlinker -e -Xlinker _NSExtensionMain \
   -framework Cocoa -framework QuickLookUI -framework WebKit
 
-echo "== Compiling host app =="
-xcrun swiftc \
-  -module-name "$APP_NAME" \
-  -emit-executable \
-  -O \
-  Sources/App/*.swift \
-  -o "$APP_BUNDLE/Contents/MacOS/$APP_NAME" \
+echo "== Compiling host app (${ARCHS[*]}) =="
+build_universal \
+  "$APP_BUNDLE/Contents/MacOS/$APP_NAME" \
+  "$APP_NAME" \
+  "Sources/App/*.swift" \
   -framework Cocoa
 
 echo "== Copying Info.plist files =="
